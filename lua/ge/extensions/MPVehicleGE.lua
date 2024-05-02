@@ -790,6 +790,12 @@ local function sendVehicleSpawn(gameVehicleID)
 		vehicleTable.pos = {pos.x, pos.y, pos.z} -- Position
 		vehicleTable.rot = {rot.x, rot.y, rot.z, rot.w} -- Rotation
 		vehicleTable.pro = settings.getValue("protectConfigFromClone", false) -- Should the config be protected?
+		
+		if vehicleTable.pro == true then
+			vehicleTable.pro = "1"
+		else
+			vehicleTable.pro = "0"
+		end
 
 		local stringToSend = jsonEncode(vehicleTable) -- Encode table to send it as json string
 		MPGameNetwork.send('Os:0:'..stringToSend) -- Send table that contain all vehicle informations for each vehicle
@@ -822,6 +828,12 @@ local function sendVehicleEdit(gameVehicleID)
 	vehicleTable.vcf = vehicleData.config
 	vehicleTable.pro = settings.getValue("protectConfigFromClone", false) -- Should the config be protected?
 
+	if vehicleTable.pro == true then
+		vehicleTable.pro = "1"
+	else
+		vehicleTable.pro = "0"
+	end
+
 	local stringToSend = jsonEncode(vehicleTable) -- Encode table to send it as json string
 	MPGameNetwork.send('Oc:'..getServerVehicleID(gameVehicleID)..':'..stringToSend) -- Send table that contain all vehicle informations for each vehicle
 	log('I', "sendVehicleEdit", "Vehicle custom data "..gameVehicleID.." was sent")
@@ -837,7 +849,7 @@ end
 local core_vehicles_cloneCurrent = core_vehicles.cloneCurrent
 core_vehicles.cloneCurrent = function ()
 	local vehicle = be:getPlayerVehicle(0)
-	if vehicle:getField("protected", 0) == 1 then
+	if vehicle:getField("protected", 0) == "1" then
 		guihooks.trigger("toastrMsg", {type="error", title="Vehicle Clone Error", msg="Sorry, you cannot clone this vehicle."})
 		return
 	else
@@ -848,7 +860,7 @@ end
 local core_vehicle_partmgmt_saveLocal = extensions.core_vehicle_partmgmt.saveLocal
 extensions.core_vehicle_partmgmt.saveLocal = function (p1)
 	local vehicle = be:getPlayerVehicle(0)
-	if vehicle:getField("protected", 0) == 1 then
+	if vehicle:getField("protected", 0) == "1" then
 		guihooks.trigger("toastrMsg", {type="error", title="Vehicle Clone Error", msg="Sorry, you cannot save this vehicle."})
 		return
 	else
@@ -857,7 +869,7 @@ extensions.core_vehicle_partmgmt.saveLocal = function (p1)
 		local util_createThumbnails_startWork = util_createThumbnails.startWork
 		util_createThumbnails.startWork = function (p1)
 			local vehicle = be:getPlayerVehicle(0)
-			if vehicle:getField("protected", 0) == 1 then
+			if vehicle:getField("protected", 0) == "1" then
 				return
 			else
 				util_createThumbnails_startWork(p1)
@@ -920,16 +932,12 @@ local function applyVehSpawn(event)
 	if spawnedVeh then -- if a vehicle with this ID was found update the obj
 		log('W', 'applyVehSpawn', "(spawn)Updating vehicle from server "..vehicleName.." with id "..spawnedVehID)
 		spawn.setVehicleObject(spawnedVeh, {model=vehicleName, config=serialize(vehicleConfig), pos=pos, rot=rot, cling=true})
-		if (protected == true or protected == "true" or protected == 1) then
-			spawnedVeh:setField("protected", 0, 1)
-		end
+		spawnedVeh:setField("protected", 0, protected or "0")
 	else
 		log('W', 'applyVehSpawn', "Spawning new vehicle "..vehicleName.." from server")
 		spawnedVeh = spawn.spawnVehicle(vehicleName, serialize(vehicleConfig), pos, rot, { autoEnterVehicle=false, vehicleName="multiplayerVehicle", cling=true})
 		spawnedVehID = spawnedVeh:getID()
-		if (protected == true or protected == "true" or protected == 1) then
-			spawnedVeh:setField("protected", 0, 1)
-		end
+		spawnedVeh:setField("protected", 0, protected or "0")
 		log('W', 'applyVehSpawn', "Spawned new vehicle "..vehicleName.." from server with id "..spawnedVehID)
 
 		if not vehicles[event.serverVehicleID] then
@@ -962,6 +970,7 @@ local function applyVehEdit(serverID, data)
 	local decodedData     = jsonDecode(data) -- Decode the data
 	local vehicleName     = decodedData.jbm -- Vehicle name
 	local vehicleConfig   = decodedData.vcf -- Vehicle config
+	local protected       = decodedData.pro -- Vehicle config
 
 	local playerName = players[decodedData.pid] and players[decodedData.pid].name or 'Unknown'
 
@@ -1012,6 +1021,8 @@ local function applyVehEdit(serverID, data)
 		log('I', 'applyVehEdit', "Updating vehicle from server "..vehicleName.." with id "..serverID)
 		spawn.setVehicleObject(veh, options)
 	end
+	
+	veh:setField("protected", 0, protected or "0")
 end
 
 
