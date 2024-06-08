@@ -133,11 +133,36 @@ function($scope, $state, $timeout, $document) {
 /* //////////////////////////////////////////////////////////////////////////////////////////////
 *	MAIN CONTROLLER
 */ //////////////////////////////////////////////////////////////////////////////////////////////
-.controller('MultiplayerController', ['$scope', '$state', '$timeout', '$mdDialog', 
-function($scope, $state, $timeout, $mdDialog) {
+.controller('MultiplayerController', ['$scope', '$state', '$timeout', '$mdDialog', 'ConfirmationDialog', 
+function($scope, $state, $timeout, $mdDialog, ConfirmationDialog) {
 	var vm = this;
 	bngApi = bngApi;
 	mdDialog = $mdDialog;
+
+	// Trigger Warning Prompt
+	$scope.$on('DownloadSecurityPrompt', function (event, data) {
+		var o = true
+		ConfirmationDialog.open(
+			"ui.multiplayer.security.title", "ui.multiplayer.security.prompt",
+			[
+				{ label: "ui.multiplayer.security.no_return", key: false, isCancel: true },
+				// { label: "Enter and don't show this again", key: true },
+				{ label: "ui.multiplayer.security.accept_proceed", key: true, default: true },
+			],
+			{ class: "experimental" }
+		).then(res => {
+			if (res) {
+				o = false
+				bngApi.engineLua(`MPCoreNetwork.approveModDownload()`);
+			}
+			if (o) {
+				o = false
+				bngApi.engineLua(`MPCoreNetwork.rejectModDownload()`);
+				vm.closeLoadingPopup()
+			}			
+		});
+	})
+
 	// Display the servers list page once the page is loaded
 	$scope.$on('$stateChangeSuccess', async function (event, toState, toParams, fromState, fromParams) {
 		//console.log(toState.url);
@@ -220,7 +245,7 @@ function($scope, $state, $timeout, $mdDialog) {
 		//console.log('Clicked')
 		var ip = document.getElementById('directip').value.trim();
 		var port = document.getElementById('directport').value.trim();
-		document.getElementById('LoadingServer').style.display = 'block';
+		document.getElementById('LoadingServer').style.display = 'flex';
 		bngApi.engineLua(`MPCoreNetwork.connectToServer("${ip}","${port}")`);
 	};
 
@@ -1049,15 +1074,19 @@ function modCount(s) {
 
 function modList(s) {
 	var modarray = s.split(';');
-	//console.log(modarray);
-	s = "";
+	
+	// Sort the mod array alphabetically
+  	modarray.sort();
 
+	s = "";
 	for (var i=0; i<modarray.length-1; i++){
-		var modName = modarray[i].split('/').pop();
-		modName = modName.replace(".zip","");
-		s += modName;
-		//if (i<modarray.length-2)
+		if (modarray[i] != '') {
+			var modName = modarray[i].split('/').pop();
+			modName = modName.replace(".zip","");
+			s += modName;
+			//if (i<modarray.length-2)
 			s += ", ";
+		}
 	}
 	//console.log(s);
 	s = s.substring(0, s.length -2);
@@ -1370,7 +1399,7 @@ function connect(ip, port, name) {
 	document.getElementById('OriginalLoadingStatus').removeAttribute("hidden");
 	document.getElementById('LoadingStatus').setAttribute("hidden", "hidden");
 	// Show the connecting screen
-	document.getElementById('LoadingServer').style.display = 'block'
+	document.getElementById('LoadingServer').style.display = 'flex'
 	// Connect with ids
 	bngApi.engineLua('MPCoreNetwork.connectToServer("' + ip + '", ' + port + ',"' + name + '")');
 }
